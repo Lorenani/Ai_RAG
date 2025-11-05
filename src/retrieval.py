@@ -91,6 +91,8 @@ class VectorRetriever:
 
     def _set_up_llm(self):
         # 根据 embedding_provider 初始化对应的 LLM 客户端
+        # 注意：不在这里设置dashscope.api_key，因为此时环境变量可能还未设置
+        # 而是在_get_embedding中每次使用时动态读取
         load_dotenv()
         if self.embedding_provider == "openai":
             llm = OpenAI(
@@ -100,9 +102,8 @@ class VectorRetriever:
             )
             return llm
         elif self.embedding_provider == "dashscope":
-            import dashscope
-            dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
-            return None  # dashscope 不需要 client 对象
+            # dashscope不需要client对象，API密钥在_get_embedding中动态设置
+            return None
         else:
             raise ValueError(f"不支持的 embedding provider: {self.embedding_provider}")
 
@@ -116,12 +117,19 @@ class VectorRetriever:
             return embedding.data[0].embedding
         elif self.embedding_provider == "dashscope":
             import dashscope
-            # 确保API密钥已设置
+            # 确保API密钥已设置 - 每次使用时都重新读取，确保获取最新值
             api_key = os.getenv("DASHSCOPE_API_KEY")
             if not api_key:
-                raise RuntimeError("DASHSCOPE_API_KEY环境变量未设置，请在Streamlit Secrets中配置")
+                # 尝试从dashscope模块获取（如果之前设置过）
+                if hasattr(dashscope, 'api_key') and dashscope.api_key:
+                    api_key = dashscope.api_key
+                else:
+                    raise RuntimeError("DASHSCOPE_API_KEY环境变量未设置，请在Streamlit Secrets中配置")
             # 去除首尾空格，防止格式问题
             api_key = str(api_key).strip()
+            if not api_key:
+                raise RuntimeError("DASHSCOPE_API_KEY为空，请检查Streamlit Secrets配置")
+            # 每次调用都重新设置，确保使用最新的密钥
             dashscope.api_key = api_key
             rsp = dashscope.TextEmbedding.call(
                 model="text-embedding-v1",
