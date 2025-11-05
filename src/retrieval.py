@@ -129,18 +129,27 @@ class VectorRetriever:
             if rsp is None:
                 raise RuntimeError("DashScope API返回None，可能是API密钥无效或网络问题，请检查API密钥配置")
             # 兼容 dashscope 返回格式，可能返回对象或字典
-            # 参考ingestion.py的处理方式，直接使用 'output' in rsp 检查
-            if 'output' in rsp and rsp.get('output') and 'embeddings' in rsp['output']:
+            # 先安全获取output
+            output = None
+            if hasattr(rsp, 'get'):
+                output = rsp.get('output')
+            elif hasattr(rsp, 'output'):
+                output = rsp.output
+            elif isinstance(rsp, dict) and 'output' in rsp:
+                output = rsp['output']
+            
+            # 检查embeddings
+            if output and isinstance(output, dict) and 'embeddings' in output:
                 # 多条输入（本处只有一条）
-                emb = rsp['output']['embeddings'][0]
+                emb = output['embeddings'][0]
                 if emb['embedding'] is None or len(emb['embedding']) == 0:
                     raise RuntimeError(f"DashScope返回的embedding为空，text_index={emb.get('text_index', None)}")
                 return emb['embedding']
-            elif 'output' in rsp and rsp.get('output') and 'embedding' in rsp['output']:
+            elif output and isinstance(output, dict) and 'embedding' in output:
                 # 兼容单条输入格式
-                if rsp['output']['embedding'] is None or len(rsp['output']['embedding']) == 0:
+                if output['embedding'] is None or len(output['embedding']) == 0:
                     raise RuntimeError("DashScope返回的embedding为空")
-                return rsp['output']['embedding']
+                return output['embedding']
             else:
                 raise RuntimeError(f"DashScope embedding API返回格式异常: {rsp}")
         else:
