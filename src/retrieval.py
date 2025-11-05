@@ -128,6 +128,31 @@ class VectorRetriever:
             # 检查响应是否为None
             if rsp is None:
                 raise RuntimeError("DashScope API返回None，可能是API密钥无效或网络问题，请检查API密钥配置")
+            
+            # 检查是否为字典或对象，并获取状态码
+            status_code = None
+            if isinstance(rsp, dict):
+                status_code = rsp.get('status_code')
+                code = rsp.get('code', '')
+                message = rsp.get('message', '')
+            elif hasattr(rsp, 'status_code'):
+                status_code = rsp.status_code
+                code = getattr(rsp, 'code', '')
+                message = getattr(rsp, 'message', '')
+            
+            # 如果状态码是401，说明API密钥无效
+            if status_code == 401 or code == 'InvalidApiKey':
+                raise RuntimeError(
+                    f"❌ DashScope API密钥无效！\n"
+                    f"错误代码: {code}\n"
+                    f"错误信息: {message}\n\n"
+                    f"请检查：\n"
+                    f"1. 在Streamlit Cloud的Secrets中配置了正确的DASHSCOPE_API_KEY\n"
+                    f"2. API密钥格式正确（一行，用引号包裹）\n"
+                    f"3. API密钥没有过期或被禁用\n"
+                    f"4. 保存后等待1-2分钟让配置生效"
+                )
+            
             # 兼容 dashscope 返回格式，可能返回对象或字典
             # 先安全获取output
             output = None
