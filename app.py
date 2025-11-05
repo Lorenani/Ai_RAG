@@ -140,6 +140,38 @@ with st.sidebar:
         key_prefix = api_key_status[:8] + "..." if len(api_key_status) > 8 else api_key_status
         key_length = len(api_key_status)
         st.success(f"🔑 API密钥: 已配置 ({key_prefix}, 长度: {key_length})")
+        
+        # 添加测试按钮
+        if st.button("🧪 测试API密钥", help="点击测试API密钥是否有效"):
+            with st.spinner("正在测试API密钥..."):
+                try:
+                    import dashscope
+                    test_key = str(api_key_status).strip()
+                    dashscope.api_key = test_key
+                    # 尝试一个简单的embedding调用
+                    rsp = dashscope.TextEmbedding.call(
+                        model="text-embedding-v1",
+                        input=["test"]
+                    )
+                    
+                    # 检查响应
+                    if isinstance(rsp, dict):
+                        status_code = rsp.get('status_code')
+                        code = rsp.get('code', '')
+                    elif hasattr(rsp, 'status_code'):
+                        status_code = rsp.status_code
+                        code = getattr(rsp, 'code', '')
+                    else:
+                        status_code = None
+                    
+                    if status_code == 401 or code == 'InvalidApiKey':
+                        st.error(f"❌ API密钥无效！\n错误代码: {code}\n请检查：\n1. 密钥是否正确\n2. 密钥是否过期\n3. 账户是否有权限")
+                    elif status_code == 200 or (hasattr(rsp, 'output') and rsp.output):
+                        st.success("✅ API密钥有效！可以正常使用")
+                    else:
+                        st.warning(f"⚠️ 测试结果不明确，状态码: {status_code}")
+                except Exception as e:
+                    st.error(f"❌ 测试失败: {str(e)}")
     else:
         st.warning("⚠️ API密钥: 未配置（请在Streamlit Cloud的Secrets中配置DASHSCOPE_API_KEY）")
     
