@@ -120,6 +120,9 @@ class VectorRetriever:
                 model="text-embedding-v1",
                 input=[text]
             )
+            # 检查响应是否为None
+            if rsp is None:
+                raise RuntimeError("DashScope API返回None，可能是API密钥未配置或网络问题")
             # 兼容 dashscope 返回格式，不能用 resp.output，需用 resp['output']
             if 'output' in rsp and 'embeddings' in rsp['output']:
                 # 多条输入（本处只有一条）
