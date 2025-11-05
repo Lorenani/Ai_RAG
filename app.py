@@ -1,10 +1,28 @@
 import streamlit as st
 import json
 import re
+import os
 from pathlib import Path
 from pyprojroot import here
 from src.questions_processing import QuestionsProcessor
 from src.pipeline import RunConfig, PipelineConfig
+
+# 从Streamlit Secrets或环境变量读取API密钥
+def get_dashscope_api_key():
+    """从Streamlit Secrets或环境变量获取DashScope API密钥"""
+    try:
+        # 优先从Streamlit Secrets读取
+        if hasattr(st, 'secrets') and 'DASHSCOPE_API_KEY' in st.secrets:
+            return st.secrets['DASHSCOPE_API_KEY']
+    except:
+        pass
+    # 从环境变量读取
+    return os.getenv("DASHSCOPE_API_KEY")
+
+# 设置API密钥到环境变量（如果通过Secrets读取）
+api_key = get_dashscope_api_key()
+if api_key:
+    os.environ["DASHSCOPE_API_KEY"] = api_key
 
 # 页面配置
 st.set_page_config(
@@ -66,22 +84,22 @@ if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
 # 侧边栏配置
+# 数据路径选择（在sidebar外定义，以便主内容区也能访问）
+data_path_option = st.sidebar.selectbox(
+    "📁 选择数据集",
+    ["erc2_set", "erc3_set"],
+    index=0,  # 默认选择 erc2_set
+    help="选择要使用的数据集"
+)
+
+data_root = here() / "data" / data_path_option
+
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; padding: 1rem;">
         <h1>⚙️ 系统配置</h1>
     </div>
     """, unsafe_allow_html=True)
-    
-    # 数据路径选择
-    data_path_option = st.selectbox(
-        "📁 选择数据集",
-        ["erc2_set", "erc3_set"],
-        index=0,  # 默认选择 erc2_set
-        help="选择要使用的数据集"
-    )
-    
-    data_root = here() / "data" / data_path_option
     
     # 显示数据集信息
     st.info(f"📂 数据集路径: `{data_root}`")
@@ -138,6 +156,9 @@ with st.sidebar:
                 
                 st.session_state.processor = processor
                 st.session_state.data_path = data_root
+                # 清除旧的companies_df缓存，确保使用新数据集
+                if hasattr(st.session_state.processor, 'companies_df'):
+                    delattr(st.session_state.processor, 'companies_df')
                 st.success("✅ 系统初始化成功！")
                 st.session_state.chat_history = []  # 清空历史记录
                 
@@ -159,10 +180,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 检查系统是否已初始化
+# 检查系统是否已初始化，以及数据集是否匹配
 if st.session_state.processor is None:
     st.warning("⚠️ 请先在侧边栏初始化系统")
     st.info("💡 提示：点击左侧的「初始化系统」按钮来加载向量数据库和配置")
+    st.stop()
+elif st.session_state.data_path != data_root:
+    # 数据集已切换，需要重新初始化
+    st.warning("⚠️ 数据集已切换，请重新初始化系统")
+    st.info(f"💡 当前数据集：{data_path_option}，但系统使用的是：{st.session_state.data_path}")
+    st.session_state.processor = None  # 清除旧的processor
     st.stop()
 
 # 问题输入区域
