@@ -59,5 +59,7 @@ Thumbs.db
 
 # Project specific
 databases/
+# 允许data目录下的databases（必须在忽略规则之后）
+!data/**/databases/**
 debug_data/
 *.zip
