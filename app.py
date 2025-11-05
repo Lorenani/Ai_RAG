@@ -10,19 +10,36 @@ from src.pipeline import RunConfig, PipelineConfig
 # 从Streamlit Secrets或环境变量读取API密钥
 def get_dashscope_api_key():
     """从Streamlit Secrets或环境变量获取DashScope API密钥"""
+    api_key = None
+    
+    # 优先从Streamlit Secrets读取（Streamlit Cloud使用这种方式）
     try:
-        # 优先从Streamlit Secrets读取
-        if hasattr(st, 'secrets') and 'DASHSCOPE_API_KEY' in st.secrets:
-            return st.secrets['DASHSCOPE_API_KEY']
-    except:
+        if hasattr(st, 'secrets'):
+            # 尝试多种可能的访问方式
+            if hasattr(st.secrets, 'get'):
+                api_key = st.secrets.get('DASHSCOPE_API_KEY')
+            elif isinstance(st.secrets, dict) and 'DASHSCOPE_API_KEY' in st.secrets:
+                api_key = st.secrets['DASHSCOPE_API_KEY']
+            elif hasattr(st.secrets, 'DASHSCOPE_API_KEY'):
+                api_key = getattr(st.secrets, 'DASHSCOPE_API_KEY', None)
+    except Exception as e:
+        # 如果读取secrets失败，继续尝试环境变量
         pass
+    
     # 从环境变量读取
-    return os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        api_key = os.getenv("DASHSCOPE_API_KEY")
+    
+    return api_key
 
-# 设置API密钥到环境变量（如果通过Secrets读取）
+# 设置API密钥到环境变量（确保所有模块都能访问）
 api_key = get_dashscope_api_key()
 if api_key:
     os.environ["DASHSCOPE_API_KEY"] = api_key
+else:
+    # 在Streamlit Cloud上，如果API密钥未设置，显示警告但不阻止应用运行
+    # 这样用户可以看到错误提示
+    pass
 
 # 页面配置
 st.set_page_config(
@@ -104,6 +121,13 @@ with st.sidebar:
     # 显示数据集信息
     st.info(f"📂 数据集路径: `{data_root}`")
     
+    # 显示API密钥状态
+    api_key_status = get_dashscope_api_key()
+    if api_key_status:
+        st.success("🔑 API密钥: 已配置")
+    else:
+        st.warning("⚠️ API密钥: 未配置（请在Streamlit Cloud的Secrets中配置DASHSCOPE_API_KEY）")
+    
     # 高级配置
     with st.expander("⚙️ 高级配置", expanded=False):
         use_reranking = st.checkbox("启用 LLM Reranking", value=True, help="使用 LLM 对检索结果进行重排序")
@@ -163,7 +187,11 @@ with st.sidebar:
                 st.session_state.chat_history = []  # 清空历史记录
                 
             except Exception as e:
-                st.error(f"❌ 初始化失败: {str(e)}")
+                error_msg = str(e)
+                st.error(f"❌ 初始化失败: {error_msg}")
+                # 如果是API密钥相关错误，给出更明确的提示
+                if "API" in error_msg or "api_key" in error_msg.lower() or "key" in error_msg.lower():
+                    st.info("💡 提示：如果是在Streamlit Cloud上运行，请确保在应用设置的Secrets中配置了DASHSCOPE_API_KEY")
                 st.exception(e)
     
     # 显示系统状态
@@ -334,7 +362,14 @@ if submit_button and question:
                 else:
                     st.error(f"❌ 错误: {error_msg}")
             except Exception as e:
-                st.error(f"❌ 处理问题时出错: {str(e)}")
+                error_msg = str(e)
+                st.error(f"❌ 处理问题时出错: {error_msg}")
+                # 如果是API密钥相关错误，给出更明确的提示
+                if "API" in error_msg or "api_key" in error_msg.lower() or "key" in error_msg.lower() or "None" in error_msg:
+                    st.info("💡 提示：如果是在Streamlit Cloud上运行，请检查：\n"
+                           "1. 在应用设置的Secrets中配置了DASHSCOPE_API_KEY\n"
+                           "2. API密钥格式正确（一行，用引号包裹）\n"
+                           "3. 保存后等待1-2分钟让配置生效")
                 st.exception(e)
 
 # 底部信息
