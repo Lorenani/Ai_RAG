@@ -129,6 +129,24 @@ class VectorRetriever:
             api_key = str(api_key).strip()
             if not api_key:
                 raise RuntimeError("DASHSCOPE_API_KEY为空，请检查Streamlit Secrets配置")
+            
+            # 调试信息：检查密钥格式
+            key_length = len(api_key)
+            key_prefix = api_key[:10] if len(api_key) >= 10 else api_key
+            key_suffix = api_key[-10:] if len(api_key) >= 10 else ""
+            # 检查是否有特殊字符（如换行符、制表符等）
+            has_newline = '\n' in api_key or '\r' in api_key
+            has_tab = '\t' in api_key
+            
+            # 如果密钥长度不对或包含特殊字符，给出警告
+            if key_length != 64:
+                _log.warning(f"API密钥长度异常: {key_length} (期望64), 前缀: {key_prefix}, 后缀: {key_suffix}")
+            if has_newline or has_tab:
+                # 清理特殊字符
+                api_key = api_key.replace('\n', '').replace('\r', '').replace('\t', '')
+                api_key = api_key.strip()
+                _log.warning(f"检测到API密钥中包含换行符或制表符，已清理。新长度: {len(api_key)}")
+            
             # 每次调用都重新设置，确保使用最新的密钥
             dashscope.api_key = api_key
             rsp = dashscope.TextEmbedding.call(
@@ -152,15 +170,24 @@ class VectorRetriever:
             
             # 如果状态码是401，说明API密钥无效
             if status_code == 401 or code == 'InvalidApiKey':
+                # 显示密钥调试信息（不显示完整密钥）
+                debug_info = f"密钥长度: {key_length}, 前缀: {key_prefix}, 后缀: {key_suffix}"
+                if has_newline or has_tab:
+                    debug_info += f", 检测到特殊字符已清理"
+                
                 raise RuntimeError(
                     f"❌ DashScope API密钥无效！\n"
                     f"错误代码: {code}\n"
-                    f"错误信息: {message}\n\n"
+                    f"错误信息: {message}\n"
+                    f"调试信息: {debug_info}\n\n"
                     f"请检查：\n"
                     f"1. 在Streamlit Cloud的Secrets中配置了正确的DASHSCOPE_API_KEY\n"
-                    f"2. API密钥格式正确（一行，用引号包裹）\n"
-                    f"3. API密钥没有过期或被禁用\n"
-                    f"4. 保存后等待1-2分钟让配置生效"
+                    f"2. API密钥格式: DASHSCOPE_API_KEY = \"完整密钥\"（一行，用引号包裹，等号前后有空格）\n"
+                    f"3. 确保密钥没有多余空格或隐藏字符\n"
+                    f"4. API密钥没有过期或被禁用\n"
+                    f"5. 保存后等待1-2分钟让配置生效\n\n"
+                    f"💡 提示：如果本地能运行但Streamlit Cloud不行，可能是Secrets中的密钥格式有问题。"
+                    f"请删除Secrets中的内容，重新输入：DASHSCOPE_API_KEY = \"你的完整密钥\""
                 )
             
             # 兼容 dashscope 返回格式，可能返回对象或字典

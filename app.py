@@ -39,13 +39,19 @@ def get_dashscope_api_key():
     return api_key
 
 # 设置API密钥到环境变量（确保所有模块都能访问）
-api_key = get_dashscope_api_key()
-if api_key:
-    os.environ["DASHSCOPE_API_KEY"] = api_key
-else:
-    # 在Streamlit Cloud上，如果API密钥未设置，显示警告但不阻止应用运行
-    # 这样用户可以看到错误提示
-    pass
+# 每次应用启动时都重新读取并设置
+def ensure_api_key_set():
+    """确保API密钥已设置到环境变量"""
+    api_key = get_dashscope_api_key()
+    if api_key:
+        # 清理并设置
+        api_key = str(api_key).strip()
+        os.environ["DASHSCOPE_API_KEY"] = api_key
+        return True
+    return False
+
+# 在模块加载时设置一次
+ensure_api_key_set()
 
 # 页面配置
 st.set_page_config(
@@ -170,6 +176,12 @@ with st.sidebar:
                     config_suffix=""
                 )
                 
+                # 确保API密钥已设置（在初始化processor之前）
+                if not ensure_api_key_set():
+                    st.error("❌ API密钥未配置，无法初始化系统")
+                    st.info("💡 请在Streamlit Cloud的Secrets中配置DASHSCOPE_API_KEY")
+                    st.stop()
+                
                 # 初始化问题处理器
                 processor = QuestionsProcessor(
                     vector_db_dir=paths.vector_db_dir,
@@ -269,6 +281,11 @@ if submit_button and question:
     else:
         with st.spinner("🤔 正在思考中，请稍候..."):
             try:
+                # 确保API密钥已设置（每次处理问题前都检查）
+                if not ensure_api_key_set():
+                    st.error("❌ API密钥未配置")
+                    st.stop()
+                
                 # 处理问题
                 answer_dict = st.session_state.processor.process_question(
                     question=question,
