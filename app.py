@@ -76,7 +76,8 @@ with st.sidebar:
     # 数据路径选择
     data_path_option = st.selectbox(
         "📁 选择数据集",
-        ["test_set", "erc2_set"],
+        ["erc2_set", "erc3_set"],
+        index=0,  # 默认选择 erc2_set
         help="选择要使用的数据集"
     )
     

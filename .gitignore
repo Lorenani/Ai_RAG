@@ -43,11 +43,11 @@ env
 
 # Data files (optional - adjust based on your needs)
 *.pdf
-*.faiss
+# 允许必要的数据文件
+!data/**/*.csv
+!data/**/*.faiss
+!data/**/*.json
 *.pkl
-*.json
-!**/test_set/**/*.json
-!**/erc2_set/**/*.json
 
 # Logs
 *.log
