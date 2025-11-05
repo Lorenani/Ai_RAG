@@ -120,6 +120,8 @@ class VectorRetriever:
             api_key = os.getenv("DASHSCOPE_API_KEY")
             if not api_key:
                 raise RuntimeError("DASHSCOPE_API_KEY环境变量未设置，请在Streamlit Secrets中配置")
+            # 去除首尾空格，防止格式问题
+            api_key = str(api_key).strip()
             dashscope.api_key = api_key
             rsp = dashscope.TextEmbedding.call(
                 model="text-embedding-v1",

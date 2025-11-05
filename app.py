@@ -22,6 +22,10 @@ def get_dashscope_api_key():
                 api_key = st.secrets['DASHSCOPE_API_KEY']
             elif hasattr(st.secrets, 'DASHSCOPE_API_KEY'):
                 api_key = getattr(st.secrets, 'DASHSCOPE_API_KEY', None)
+            
+            # 如果获取到密钥，去除首尾空格
+            if api_key:
+                api_key = str(api_key).strip()
     except Exception as e:
         # 如果读取secrets失败，继续尝试环境变量
         pass
@@ -29,6 +33,8 @@ def get_dashscope_api_key():
     # 从环境变量读取
     if not api_key:
         api_key = os.getenv("DASHSCOPE_API_KEY")
+        if api_key:
+            api_key = str(api_key).strip()
     
     return api_key
 
@@ -124,7 +130,10 @@ with st.sidebar:
     # 显示API密钥状态
     api_key_status = get_dashscope_api_key()
     if api_key_status:
-        st.success("🔑 API密钥: 已配置")
+        # 显示密钥前缀用于验证（不显示完整密钥）
+        key_prefix = api_key_status[:8] + "..." if len(api_key_status) > 8 else api_key_status
+        key_length = len(api_key_status)
+        st.success(f"🔑 API密钥: 已配置 ({key_prefix}, 长度: {key_length})")
     else:
         st.warning("⚠️ API密钥: 未配置（请在Streamlit Cloud的Secrets中配置DASHSCOPE_API_KEY）")
     
